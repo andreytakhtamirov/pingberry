@@ -206,7 +206,7 @@ def main():
     connect_properties = mqtt.Properties(mqtt.PacketTypes.CONNECT)
     connect_properties.SessionExpiryInterval = SESSION_EXPIRY_30_DAYS
 
-    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=30, properties=connect_properties)
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=30, properties=connect_properties, clean_start=False)
     mqtt_client.loop_forever()
 
 if __name__ == "__main__":
