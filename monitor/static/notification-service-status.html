@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PingBerry Notification Service</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/monitor/static/js/chart.es5.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 1rem;
+            background: #f4f4f4;
+            color: #333;
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .status-line {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .status-circle {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        .online {
+            background: #00C853;
+        }
+
+        .offline {
+            background: #D50000;
+        }
+
+        .chart-container {
+            height: 35vh;
+            max-height: 320px;
+            margin-top: 1rem;
+            background: white;
+            border-radius: 10px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            padding-right: 10px;
+            padding-left: 10px;
+            margin: 2rem auto;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease
+        }
+
+        canvas {
+            background: #fff;
+        }
+
+        #last-update {
+            font-size: 0.9rem;
+            color: #555;
+            margin-top: 1.25rem;
+        }
+
+        @media (max-width: 500px) {
+            body {
+                padding: 5px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+            }
+        }
+
+        .back-button {
+            margin-bottom: 10px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            background-color: #2c3e50;
+            color: white;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .back-button:hover {
+            background-color: #34495e;
+            transform: scale(1.02);
+        }
+
+        .back-button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+
+<body>
+    <button class="back-button" onclick="window.location.href='/monitor/'">← Back</button>
+
+    <h1>PingBerry Notification Service</h1>
+    <div id="status">Loading...</div>
+    <div class="chart-container">
+        <canvas id="uptimeChart"></canvas>
+    </div>
+    <div id="last-update"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            function fetchHistory() {
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "/monitor/history", true);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                var data = JSON.parse(xhr.responseText);
+                                renderChart(data);
+                            } catch (err) {
+                                console.error("Invalid JSON:", err);
+                                document.getElementById("status").innerText = "⚠️ Error parsing data.";
+                            }
+                        } else {
+                            document.getElementById("status").innerText = "⚠️ Request failed (" + xhr.status + ")";
+                        }
+                    }
+                };
+                xhr.send();
+            }
+
+            function parseISODate(s) {
+                var parts = s.match(/\d+/g);
+                if (!parts || parts.length < 6) return new Date(0);
+                return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
+            }
+
+            function format12Hour(date, timeOnly) {
+                if (typeof timeOnly === 'undefined') timeOnly = true; // default to true
+
+                if (timeOnly) {
+                    var h = date.getHours(), m = date.getMinutes();
+                    var ampm = h >= 12 ? "PM" : "AM";
+                    h = h % 12 || 12;
+                    if (m < 10) m = "0" + m;
+                    return h + ":" + m + " " + ampm;
+                }
+
+                var month = date.getMonth() + 1;
+                var day = date.getDate();
+                var year = date.getFullYear();
+                var h = date.getHours();
+                var m = date.getMinutes();
+                var s = date.getSeconds();
+                var ampm = h >= 12 ? "PM" : "AM";
+                h = h % 12 || 12;
+                if (month < 10) month = "0" + month;
+                if (day < 10) day = "0" + day;
+                if (m < 10) m = "0" + m;
+                if (s < 10) s = "0" + s;
+                return month + "/" + day + "/" + year + " " + h + ":" + m + ":" + s + " " + ampm;
+            }
+
+            function renderChart(data) {
+                var labels = [], serviceStatus = [], mqttStatus = [];
+
+                for (var i = 0; i < data.length; i++) {
+                    var entry = data[i];
+                    var date = parseISODate(entry.checked_at);
+                    labels.push(format12Hour(date));
+                    serviceStatus.push(entry.uptime_seconds !== null ? 1 : 0.2);
+                    mqttStatus.push(entry.mqtt_connected ? 1 : 0.2);
+                }
+
+                var latest = data[data.length - 1];
+                var latestTime = latest ? format12Hour(parseISODate(latest.checked_at)) : "unknown";
+
+                // === STATUS INDICATORS ===
+                var serviceColor = (latest && latest.uptime_seconds !== null) ? "#00C853" : "#D50000";
+                var mqttColor = (latest && latest.mqtt_connected) ? "#00C853" : "#D50000";
+
+                var devicesText = (latest && typeof latest.online_devices !== "undefined")
+                    ? " (" + latest.online_devices + " Online)"
+                    : "";
+
+                var statusHTML =
+                    '<span class="status-circle" style="background:' + serviceColor + ';"></span>' +
+                    'Notification System - ' +
+                    ((latest && latest.uptime_seconds !== null)
+                        ? "Online (Uptime: " + latest.uptime_seconds + "s)"
+                        : "Offline") +
+                    '<br>' +
+                    '<span class="status-circle" style="background:' + mqttColor + ';"></span>' +
+                    'Device Connection - ' +
+                    ((latest && latest.mqtt_connected) ? "Connected" : "Disconnected") +
+                    devicesText;
+
+                document.getElementById("status").innerHTML = statusHTML;
+
+                var lastTime = format12Hour(parseISODate(latest.checked_at), false);
+                document.getElementById('last-update').innerText = "Last checked: " + lastTime;
+
+                // === CHART ===
+                var ctx = document.getElementById("uptimeChart").getContext("2d");
+                if (window.uptimeChart && typeof window.uptimeChart.destroy === "function") {
+                    window.uptimeChart.destroy();
+                }
+
+                window.uptimeChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Notification System',
+                                data: serviceStatus,
+                                backgroundColor: serviceStatus.map(function (v) {
+                                    return v === 1 ? '#00C853' : '#D50000';
+                                }),
+                                yAxisID: 'y-axis-status',
+                                barThickness: 4
+                            },
+                            {
+                                label: 'Device Connection',
+                                data: mqttStatus,
+                                backgroundColor: mqttStatus.map(function (v) {
+                                    return v === 1 ? '#00C853' : '#D50000';
+                                }),
+                                yAxisID: 'y-axis-status',
+                                barThickness: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        legend: { display: false },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            xAxes: [{
+                                ticks: {
+                                    maxRotation: 90,
+                                    minRotation: 45,
+                                    autoSkip: true,
+                                    autoSkipPadding: 20,
+                                }
+                            }],
+                            yAxes: [{
+                                id: 'y-axis-status',
+                                position: 'right',
+                                ticks: {
+                                    stepSize: 1,
+                                    max: 1,
+                                    min: 0,
+                                    callback: function (v) { return v === 1 ? 'Online' : 'Offline'; }
+                                }
+                            }]
+                        },
+                        tooltips: {
+                            callbacks: {
+                                label: function (tooltipItem, data) {
+                                    var label = data.datasets[tooltipItem.datasetIndex].label;
+                                    var raw = tooltipItem.yLabel;
+                                    if (label === "Notification System") return raw === 1 ? "Online" : "System Offline";
+                                    if (label === "Device Connection") return raw === 1 ? "Connected" : "Disconnected";
+                                    return label + ": " + raw;
+                                }
+                            }
+                        },
+                        layout: { padding: 0 }
+                    }
+                });
+            }
+
+            fetchHistory();
+        });
+    </script>
+</body>
+
+</html>

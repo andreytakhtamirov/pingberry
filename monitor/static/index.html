@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PingBerry System Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/monitor/static/js/chart.es5.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 1rem;
+            background: #f4f4f4;
+            color: #333;
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .card:hover {
+            transform: scale(1.02);
+        }
+
+        .status-circle {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        .online {
+            background: #00C853;
+        }
+
+        .offline {
+            background: #D50000;
+        }
+
+        .half {
+            background: linear-gradient(to right, #00C853 50%, #D50000 50%);
+        }
+
+        canvas.mini-chart {
+            width: 100%;
+            height: 30px;
+            max-height: 30px;
+            display: block;
+            margin-bottom: 1rem;
+        }
+
+        #last-update {
+            font-size: 0.9rem;
+            color: #555;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>PingBerry Service Status</h1>
+    <div id="summary">Loading...</div>
+    <div id="last-update"></div>
+
+    <script>
+        function fetchHistory() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/monitor/history', true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            updateSummary(data);
+                        } catch (e) {
+                            document.getElementById('summary').innerText = "⚠️ Unable to parse history.";
+                        }
+                    } else {
+                        document.getElementById('summary').innerText = "⚠️ Unable to fetch status.";
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function parseISODate(s) {
+            var parts = s.match(/\d+/g);
+            if (!parts || parts.length < 6) return new Date(0);
+            return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
+        }
+
+        function format12Hour(date, timeOnly) {
+            if (typeof timeOnly === 'undefined') timeOnly = true; // default to true
+
+            if (timeOnly) {
+                var h = date.getHours(), m = date.getMinutes();
+                var ampm = h >= 12 ? "PM" : "AM";
+                h = h % 12 || 12;
+                if (m < 10) m = "0" + m;
+                return h + ":" + m + " " + ampm;
+            }
+
+            var month = date.getMonth() + 1;
+            var day = date.getDate();
+            var year = date.getFullYear();
+            var h = date.getHours();
+            var m = date.getMinutes();
+            var s = date.getSeconds();
+            var ampm = h >= 12 ? "PM" : "AM";
+            h = h % 12 || 12;
+            if (month < 10) month = "0" + month;
+            if (day < 10) day = "0" + day;
+            if (m < 10) m = "0" + m;
+            if (s < 10) s = "0" + s;
+            return month + "/" + day + "/" + year + " " + h + ":" + m + ":" + s + " " + ampm;
+        }
+
+        function findFirstDown(data, key) {
+            // Iterate from oldest to newest
+            for (var i = 0; i < data.length; i++) {
+                if (!data[i][key]) {
+                    // Found the first time the service went down
+                    return format12Hour(parseISODate(data[i].checked_at));
+                }
+            }
+            return "unknown"; // never down
+        }
+
+        function updateSummary(data) {
+            if (!data || !data.length) {
+                document.getElementById('summary').innerText = "No status data available.";
+                return;
+            }
+
+            var latest = data[data.length - 1];
+            var isServiceOnline = latest.uptime_seconds !== null;
+            var isMqttOnline = latest.mqtt_connected;
+            var devices = typeof latest.online_devices !== "undefined" ? latest.online_devices : 0;
+
+            var serviceColor;
+            if (isServiceOnline && isMqttOnline) {
+                serviceColor = 'online';
+            } else if (!isServiceOnline && !isMqttOnline) {
+                serviceColor = 'offline';
+            } else {
+                serviceColor = 'half';
+            }
+
+            // Build message
+            var messageParts = [];
+            if (!isServiceOnline) {
+                // If the notification system is down, include only that
+                messageParts.push("Notification System down since " + findFirstDown(data, 'uptime_seconds'));
+            } else if (!isMqttOnline) {
+                // Only show device connection downtime if the notification system is online
+                messageParts.push("Device Connection down since " + findFirstDown(data, 'mqtt_connected'));
+            }
+
+            var message = messageParts.length ? messageParts.join(" & ") : "All systems operational";
+
+            var html = '<div class="card" onclick="location.href=\'/monitor/status/notification-service\'">' +
+                '<div style="font-weight:bold; margin-bottom:6px;">Notification Service</div>' +
+                '<canvas id="miniChart" class="mini-chart"></canvas>' +
+                '<div><span class="status-circle ' + serviceColor + '"></span>' + message + '</div>' +
+                '<div><br>Online Devices: ' + devices + '</div>' +
+                '</div>';
+
+            document.getElementById('summary').innerHTML = html;
+            document.getElementById('last-update').innerText = "Last checked: " + format12Hour(parseISODate(latest.checked_at), false);
+
+            // Chart
+            var labels = [], serviceStatus = [], mqttStatus = [];
+            for (var i = 0; i < data.length; i++) {
+                var entry = data[i];
+                labels.push('');
+                serviceStatus.push(1);
+                mqttStatus.push(1);
+            }
+
+            var ctx = document.getElementById('miniChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Notification System',
+                            data: serviceStatus,
+                            backgroundColor: data.map(function (e) {
+                                return e.uptime_seconds !== null ? '#00C853' : '#D50000';
+                            }),
+                            barThickness: 4
+                        },
+                        {
+                            label: 'Device Connection',
+                            data: mqttStatus,
+                            backgroundColor: data.map(function (e) {
+                                return e.mqtt_connected ? '#00C853' : '#D50000';
+                            }),
+                            barThickness: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    legend: { display: false },
+                    tooltips: { enabled: false },
+                    hover: { mode: null },
+                    scales: {
+                        xAxes: [{ display: false }],
+                        yAxes: [{ display: false }]
+                    },
+                    layout: { padding: 0 }
+                }
+            });
+        }
+
+        fetchHistory();
+    </script>
+</body>
+
+</html>

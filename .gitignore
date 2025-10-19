@@ -1,0 +1,12 @@
+.vscode/
+.DS_Store
+__pycache__
+
+.env
+*.log
+
+server/certs/
+client/app/client_data.json
+client/app/mqtt_credentials.json
+
+*.db
