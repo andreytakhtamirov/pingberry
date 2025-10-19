@@ -37,7 +37,10 @@ async def notify(request: NotificationRequest):
 
     # Continue with notification sending
     result = await notifier.send_notification(
-        request.phone_email, request.message_from, request.message
+        request.phone_email,
+        request.message_from,
+        request.message,
+        request.queue_if_offline,
     )
 
     if result["status"] == "success":
@@ -84,8 +87,6 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         content={"message": "Client registered successfully"},
         status_code=status.HTTP_201_CREATED,
     )
-
-
 
 @app.get("/status")
 async def get_status():

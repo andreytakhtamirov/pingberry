@@ -142,7 +142,7 @@ class MQTTNotification:
         payload = self.create_payload(public_key_pem, message_from, message_text)
 
         topic = f"notifications/{recipient_uuid}"
-        print(f"MQTT Publish to {topic}, From: {message_from}")
+        print(f"MQTT Publish to {topic}")
         info = self.client.publish(topic, payload, qos=1)
         info.wait_for_publish()
 

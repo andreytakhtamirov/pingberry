@@ -11,6 +11,8 @@ import base64
 import fcntl
 import os
 
+SESSION_EXPIRY_30_DAYS = 30 * 24 * 60 * 60
+
 # --------- Utilities ---------
 def log(msg):
     print(msg)
@@ -176,7 +178,7 @@ def main():
         transport="websockets",
         protocol=mqtt.MQTTv5,
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-        client_id=str(uuid.uuid4())
+        client_id=uuid_str
     )
 
     mqtt_client.tls_set()
@@ -201,7 +203,10 @@ def main():
     mqtt_client.on_disconnect = on_disconnect
     mqtt_client.on_message = on_message
 
-    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+    connect_properties = mqtt.Properties(mqtt.PacketTypes.CONNECT)
+    connect_properties.SessionExpiryInterval = SESSION_EXPIRY_30_DAYS
+
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=30, properties=connect_properties)
     mqtt_client.loop_forever()
 
 if __name__ == "__main__":

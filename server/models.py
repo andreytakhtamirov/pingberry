@@ -5,17 +5,16 @@ from typing import Optional
 
 class NotificationMethod(str, Enum):
     mqtt = "mqtt"
-    sms = "sms"
 
 class NotificationRequest(BaseModel):
     phone_email: EmailStr
     message_from: str
     message: str
     method: NotificationMethod
+    queue_if_offline: bool = False
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    sms_fallback: Optional[EmailStr] = None
     uuid: UUID
     notification_public_key: str
     status_public_key: str 
