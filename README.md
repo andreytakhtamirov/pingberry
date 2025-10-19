@@ -1,6 +1,8 @@
 # PingBerry
 PingBerry is a background notification service for BlackBerry 10 devices.
 
+**Monitor server status and uptime here**: [PingBerry Status Monitor](https://scoreless-clinically-carol.ngrok-free.app/monitor/)
+
 ## Installation Guide
 
 > **⚠️ Must be installed in a Term48 or Term49 environment with _ALL PERMISSIONS ENABLED_.**
