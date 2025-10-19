@@ -35,16 +35,16 @@ class NotificationService:
                 }
         return None
 
-    async def send_notification(self, message_to: str, message_from: str, message: str, queue_if_offline: bool):
+    async def send_notification(self, recipient_email: str, message_title: str, message_body: str, queue_if_offline: bool, collapse_duplicates: bool):
         """
         Automatically selects the delivery method (currently only MQTT supported) based on device status.
         `to` is the device UUID.
         """
-        client_info = self.get_client_info(message_to)
+        client_info = self.get_client_info(recipient_email)
         if not client_info:
             # No client found in DB
-            print(f"[WARN] Client info for {message_to} not found.")
-            return {"method": None, "status": "fail", "code": 404, "error": f"Notification recipient {message_to} not found"}
+            print(f"[WARN] Client info for {recipient_email} not found.")
+            return {"method": None, "status": "fail", "code": 404, "error": f"Notification recipient {recipient_email} not found"}
 
         recipient_uuid = client_info["uuid"]
         notif_public_key_pem = client_info["notification_public_key"]
@@ -53,7 +53,7 @@ class NotificationService:
             if self.mqtt_notifier.is_device_online(recipient_uuid):
                 print(f"[INFO] Device {recipient_uuid} online → sending via MQTT.")
                 success = self.mqtt_notifier.send(
-                    message_from, message, recipient_uuid, notif_public_key_pem
+                    message_title, message_body, recipient_uuid, notif_public_key_pem, collapse_duplicates
                 )
                 if success:
                     return {"method": "mqtt", "status": "success", "code": 200}
@@ -63,10 +63,10 @@ class NotificationService:
                 if queue_if_offline:
                     print(f"[INFO] Queuing message for {recipient_uuid} until device comes online")
                     success = self.mqtt_notifier.send(
-                        message_from, message, recipient_uuid, notif_public_key_pem
+                        message_title, message_body, recipient_uuid, notif_public_key_pem, collapse_duplicates
                     )
                     if success:
-                        return {"method": "mqtt", "status": "success", "code": 200}
+                        return {"method": "mqtt", "status": "success", "code": 202}
                     else:
                         return {"method": "mqtt", "status": "fail", "code": 500, "error": "MQTT queue failed"}
 

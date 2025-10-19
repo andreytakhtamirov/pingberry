@@ -7,11 +7,12 @@ class NotificationMethod(str, Enum):
     mqtt = "mqtt"
 
 class NotificationRequest(BaseModel):
-    phone_email: EmailStr
-    message_from: str
-    message: str
-    method: NotificationMethod
+    recipient_email: EmailStr
+    message_title: str
+    message_body: str
+    method: NotificationMethod = NotificationMethod.mqtt
     queue_if_offline: bool = False
+    collapse_duplicates: bool = True
 
 class RegisterRequest(BaseModel):
     email: EmailStr

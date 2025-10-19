@@ -31,16 +31,17 @@ def get_db():
 @app.post("/notify")
 async def notify(request: NotificationRequest):
     # Validate each field separately for clear error messages
-    Validate.check_field_length(request.phone_email, "phone_email")
-    Validate.check_field_length(request.message_from, "message_from")
-    Validate.check_field_length(request.message, "message")
+    Validate.check_field_length(request.recipient_email, "recipient_email")
+    Validate.check_field_length(request.message_title, "message_title")
+    Validate.check_field_length(request.message_body, "message_body")
 
     # Continue with notification sending
     result = await notifier.send_notification(
-        request.phone_email,
-        request.message_from,
-        request.message,
+        request.recipient_email,
+        request.message_title,
+        request.message_body,
         request.queue_if_offline,
+        request.collapse_duplicates,
     )
 
     if result["status"] == "success":
@@ -62,14 +63,20 @@ async def notify(request: NotificationRequest):
 
 @app.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    existing = db.query(Client).filter_by(uuid=str(request.uuid)).first()
+    existing_by_uuid = db.query(Client).filter_by(uuid=str(request.uuid)).first()
+    existing_by_email = db.query(Client).filter_by(email=request.email).first()
 
-    # TODO in the future, key rotation could be allowed only if we can verify the client to prevent hijacking.
-    if existing:
+    # TODO in the future, key rotation could be allowed only if we can verify the client to prevent hijacking (e.g., sending a link via email).
+    if existing_by_uuid:
         # Block any attempts to overwrite an existing client
         raise HTTPException(
             status_code=409,
-            detail="This device (UUID) is already registered. Key rotation or overwrite not allowed.",
+            detail="This device and email are already registered. Key rotation or overwrite not allowed.",
+        )
+    if existing_by_email:
+        raise HTTPException(
+            status_code=409,
+            detail="This email is already registered to another device. Overwrite is not allowed.",
         )
 
     # Create a new registration

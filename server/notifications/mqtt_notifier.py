@@ -119,14 +119,20 @@ class MQTTNotification:
     def generate_message_id(self):
         return ''.join(random.choices(string.ascii_letters + string.digits, k=10))
 
-    def create_payload(self, public_key_pem, message_from, message_text):
-        # TODO add 245-byte per item payload limit.
-        item_id_encrypted = self.encrypt_message(public_key_pem, self.generate_message_id())
-        message_from_encrypted = self.encrypt_message(public_key_pem, message_from) #self.generate_message_id()
+    def create_payload(self, public_key_pem, message_title, message_body, collapse_duplicates):
+        message_title_encrypted = self.encrypt_message(public_key_pem, message_title)
+
+        if collapse_duplicates:
+            # Replace any existing notification with the same title.
+            item_id_encrypted = message_title_encrypted
+        else:
+            # Create unique notification.
+            item_id_encrypted = self.encrypt_message(public_key_pem, self.generate_message_id())
+        
         payload_dict = {
-            "itemid": message_from_encrypted,
-            "title": message_from_encrypted,
-            "subtitle": self.encrypt_message(public_key_pem, message_text),
+            "itemid": item_id_encrypted,
+            "title": message_title_encrypted,
+            "subtitle": self.encrypt_message(public_key_pem, message_body),
             # "target": "defaultTarget",
             # "targetAction": "defaultTargetAction",
             # "payload": "defaultPayload",
@@ -138,8 +144,8 @@ class MQTTNotification:
     def is_device_online(self, device_uuid):
         return self.device_statuses.get(device_uuid, False)
 
-    def send(self, message_from, message_text, recipient_uuid, public_key_pem):
-        payload = self.create_payload(public_key_pem, message_from, message_text)
+    def send(self, message_title, message_body, recipient_uuid, public_key_pem, collapse_duplicates):
+        payload = self.create_payload(public_key_pem, message_title, message_body, collapse_duplicates)
 
         topic = f"notifications/{recipient_uuid}"
         print(f"MQTT Publish to {topic}")
