@@ -75,3 +75,40 @@ class NotificationService:
         except Exception as e:
             print(f"[ERROR] Notification send failed: {e}")
             return {"method": None, "status": "fail", "code": 500, "error": str(e)}
+
+    async def send_encrypted_notification(self, recipient_email: str, encrypted_title: str, encrypted_body: str, queue_if_offline: bool, collapse_duplicates: bool):
+        client_info = self.get_client_info(recipient_email)
+        if not client_info:
+            # No client found in DB
+            print(f"[WARN] Client info for {recipient_email} not found.")
+            return {"method": None, "status": "fail", "code": 404, "error": f"Notification recipient {recipient_email} not found"}
+
+        recipient_uuid = client_info["uuid"]
+        notif_public_key_pem = client_info["notification_public_key"]
+
+        try:
+            if self.mqtt_notifier.is_device_online(recipient_uuid):
+                print(f"[INFO] Device {recipient_uuid} online → sending via MQTT.")
+                success = self.mqtt_notifier.send_encrypted(
+                    encrypted_title, encrypted_body, recipient_uuid, notif_public_key_pem,collapse_duplicates
+                )
+                if success:
+                    return {"method": "mqtt", "status": "success", "code": 200}
+                else:
+                    return {"method": "mqtt", "status": "fail", "code": 500, "error": "MQTT send failed"}
+            else:
+                if queue_if_offline:
+                    print(f"[INFO] Queuing message for {recipient_uuid} until device comes online")
+                    success = self.mqtt_notifier.send_encrypted(
+                        encrypted_title, encrypted_body, recipient_uuid, notif_public_key_pem, collapse_duplicates
+                    )
+                    if success:
+                        return {"method": "mqtt", "status": "success", "code": 202}
+                    else:
+                        return {"method": "mqtt", "status": "fail", "code": 500, "error": "MQTT queue failed"}
+
+                return {"method": None, "status": "fail", "code": 409, "error": "Device offline"}
+
+        except Exception as e:
+            print(f"[ERROR] Notification send failed: {e}")
+            return {"method": None, "status": "fail", "code": 500, "error": str(e)}

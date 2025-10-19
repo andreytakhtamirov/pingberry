@@ -1,6 +1,6 @@
 from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from models import NotificationRequest, RegisterRequest
+from models import NotificationRequest, RegisterRequest, PublicKeyRequest, PublicKeyResponse, EncryptedNotificationRequest
 from notifications.notification_service import NotificationService
 from schemas import Client, Base
 from db import SessionLocal, engine
@@ -29,9 +29,8 @@ def get_db():
         db.close()
 
 @app.post("/notify")
-async def notify(request: NotificationRequest):
+async def send_notification(request: NotificationRequest):
     # Validate each field separately for clear error messages
-    Validate.check_field_length(request.recipient_email, "recipient_email")
     Validate.check_field_length(request.message_title, "message_title")
     Validate.check_field_length(request.message_body, "message_body")
 
@@ -40,6 +39,37 @@ async def notify(request: NotificationRequest):
         request.recipient_email,
         request.message_title,
         request.message_body,
+        request.queue_if_offline,
+        request.collapse_duplicates,
+    )
+
+    if result["status"] == "success":
+        return JSONResponse(
+            content={
+                "message": f"Notification sent via {result['method']}",
+                "details": result,
+            },
+            status_code=result["code"],
+        )
+
+    return JSONResponse(
+        content={
+            "message": "Notification failed",
+            "details": result.get("error", "Unknown error"),
+        },
+        status_code=result["code"],
+    )
+
+@app.post("/notify/encrypted")
+async def send_encrypted_notification(request: EncryptedNotificationRequest):
+    """
+    Send an encrypted notification to a registered client device.
+    The title and body must be pre-encrypted by the sender.
+    """
+    result = await notifier.send_encrypted_notification(
+        request.recipient_email,
+        request.encrypted_title,
+        request.encrypted_body,
         request.queue_if_offline,
         request.collapse_duplicates,
     )
@@ -93,6 +123,18 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
     return JSONResponse(
         content={"message": "Client registered successfully"},
         status_code=status.HTTP_201_CREATED,
+    )
+
+@app.post("/clients/public-key", response_model=PublicKeyResponse)
+def get_public_key(request: PublicKeyRequest, db: Session = Depends(get_db)):
+    client = db.query(Client).filter_by(email=request.recipient_email).first()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found"
+        )
+    return PublicKeyResponse(
+        notification_public_key=client.notification_public_key,
     )
 
 @app.get("/status")

@@ -141,11 +141,47 @@ class MQTTNotification:
         }
         return json.dumps(payload_dict)
 
+    def create_encrypted_payload(self, public_key_pem, encrypted_title, encrypted_body, collapse_duplicates):
+        if collapse_duplicates:
+            # Replace any existing notification with the same title.
+            item_id_encrypted = encrypted_title
+        else:
+            # Create unique notification.
+            item_id_encrypted = self.encrypt_message(public_key_pem, self.generate_message_id())
+        
+        payload_dict = {
+            "itemid": item_id_encrypted,
+            "title": encrypted_title,
+            "subtitle": encrypted_body,
+            # "target": "defaultTarget",
+            # "targetAction": "defaultTargetAction",
+            # "payload": "defaultPayload",
+            # "payloadType": "defaultPayloadType",
+            # "payloadURI": "defaultPayloadURI"
+        }
+        return json.dumps(payload_dict)
+
+
     def is_device_online(self, device_uuid):
         return self.device_statuses.get(device_uuid, False)
 
     def send(self, message_title, message_body, recipient_uuid, public_key_pem, collapse_duplicates):
         payload = self.create_payload(public_key_pem, message_title, message_body, collapse_duplicates)
+
+        topic = f"notifications/{recipient_uuid}"
+        print(f"MQTT Publish to {topic}")
+        info = self.client.publish(topic, payload, qos=1)
+        info.wait_for_publish()
+
+        if info.rc == mqtt.MQTT_ERR_SUCCESS:
+            print("MQTT message published successfully")
+            return True
+        else:
+            print(f"MQTT publish failed: {info.rc}")
+            return False
+
+    def send_encrypted(self, encrypted_title, encrypted_body, recipient_uuid, public_key_pem, collapse_duplicates):
+        payload = self.create_encrypted_payload(public_key_pem, encrypted_title, encrypted_body, collapse_duplicates)
 
         topic = f"notifications/{recipient_uuid}"
         print(f"MQTT Publish to {topic}")

@@ -14,9 +14,22 @@ class NotificationRequest(BaseModel):
     queue_if_offline: bool = False
     collapse_duplicates: bool = True
 
+class EncryptedNotificationRequest(BaseModel):
+    recipient_email: EmailStr
+    encrypted_title: str
+    encrypted_body: str
+    method: NotificationMethod = NotificationMethod.mqtt
+    queue_if_offline: bool = False
+    collapse_duplicates: bool = True
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     uuid: UUID
     notification_public_key: str
     status_public_key: str 
 
+class PublicKeyRequest(BaseModel):
+    recipient_email: EmailStr
+
+class PublicKeyResponse(BaseModel):
+    notification_public_key: str
