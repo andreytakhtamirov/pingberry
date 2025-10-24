@@ -22,7 +22,7 @@ import requests, base64
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-API_BASE_URL = "https://scoreless-clinically-carol.ngrok-free.app/server"
+API_BASE_URL = "https://api.pingberry.xyz"
 RECIPIENT_EMAIL = "user@email.com"
 TITLE = "Hello PingBerry!"
 MESSAGE = "This is a secret message."
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 import fetch from "node-fetch";
 import forge from "node-forge";
 
-const API_BASE_URL = "https://scoreless-clinically-carol.ngrok-free.app/server";
+const API_BASE_URL = "https://api.pingberry.xyz";
 const RECIPIENT_EMAIL = "user@email.com";
 const TITLE = "Hello PingBerry!";
 const MESSAGE = "This is a secret message.";

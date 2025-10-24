@@ -1,5 +1,7 @@
 # PingBerry API Docs
 
+**Base URL: https://api.pingberry.xyz**
+
 ## Table of Contents
 
 - [POST /notify](#post-notify)
