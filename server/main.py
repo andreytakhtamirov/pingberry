@@ -13,7 +13,11 @@ import time
 load_dotenv()
 
 start_time = time.time()
-app = FastAPI()
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 notifier = NotificationService(db_path=os.getenv("DB_PATH", "notification.db"))
 

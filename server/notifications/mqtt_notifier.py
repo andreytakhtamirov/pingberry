@@ -10,8 +10,10 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
+from datetime import datetime, timedelta
 import base64
 import sqlite3
+import threading
 
 class MQTTNotification:
     def __init__(self, db_path, broker, port, ca_cert, username, password):
@@ -81,10 +83,22 @@ class MQTTNotification:
     def is_connected(self):
         return self.connected
 
-    def get_status_public_key(self, device_id: str):
+    def get_status_public_key(self, device_uuid: str):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT status_public_key FROM clients WHERE uuid=?", (device_id,))
+            cursor.execute("SELECT status_public_key FROM clients WHERE uuid=?", (device_uuid,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+        return None
+
+    def get_notification_public_key(self, device_uuid: str):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT notification_public_key FROM clients WHERE uuid=?",
+                (device_uuid,),
+            )
             row = cursor.fetchone()
             if row:
                 return row[0]
@@ -95,26 +109,53 @@ class MQTTNotification:
             data = json.loads(msg.payload.decode())
             topic_parts = msg.topic.strip('/').split('/')
             if len(topic_parts) == 2 and topic_parts[0] == 'status':
-                device_id = topic_parts[1]
+                device_uuid = topic_parts[1]
 
                 # Fetch status-public key from DB
-                public_key_pem = self.get_status_public_key(device_id)
+                public_key_pem = self.get_status_public_key(device_uuid)
                 if not public_key_pem:
-                    print(f"No public key found for {device_id}")
+                    print(f"No public key found for {device_uuid}")
                     return
 
                 if not self.verify_signed_status(data, public_key_pem):
-                    print(f"Invalid signature on status from {device_id}")
+                    print(f"Invalid signature on status from {device_uuid}")
                     return
 
                 payload = json.loads(data["payload"])
                 status = bool(payload.get('status', False))
-                self.device_statuses[device_id] = status
-                print(f"Device '{device_id}' is now {'online' if status else 'offline'}")
+                self.device_statuses[device_uuid] = status
+
+                print(f"Device '{device_uuid}' is now {'online' if status else 'offline'}")
+
+                # Only send welcome when device goes online
+                if status:
+                    last_seen = self.get_last_seen_online(device_uuid)
+                    now = datetime.utcnow()
+
+                    # Send welcome if first time seeing the device online
+                    if last_seen is None:
+                        notif_key = self.get_notification_public_key(device_uuid)
+                        if notif_key:
+                            print(f"Sending welcome message to {device_uuid}")
+                            threading.Thread(
+                                target=self.send,
+                                args=(
+                                    "Welcome to PingBerry!",
+                                    "You're connected and will receive notifications here.\nTo start, link your favorite services or send notifications using the PingBerry API\nhttps://github-md.com/andreytakhtamirov/pingberry/blob/main/docs/api-docs.md#post-notify",
+                                    device_uuid,
+                                    notif_key,
+                                    False,
+                                ),
+                                daemon=True,
+                            ).start()
+                        else:
+                            print(f"No notification key found for {device_uuid}")
+
+                    # Always update last_seen_online
+                    self.update_last_seen_online(device_uuid)
 
         except Exception as e:
             print(f"Failed to parse status message: {e}")
-
 
     def generate_message_id(self):
         return ''.join(random.choices(string.ascii_letters + string.digits, k=10))
@@ -164,6 +205,27 @@ class MQTTNotification:
 
     def is_device_online(self, device_uuid):
         return self.device_statuses.get(device_uuid, False)
+
+    def update_last_seen_online(self, device_uuid: str):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE clients SET last_seen_online = ? WHERE uuid = ?",
+                (datetime.utcnow(), device_uuid)
+            )
+            conn.commit()
+
+    def get_last_seen_online(self, device_uuid: str):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT last_seen_online FROM clients WHERE uuid=?", (device_uuid,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                try:
+                    return datetime.fromisoformat(row[0])
+                except ValueError:
+                    return None
+        return None
 
     def send(self, message_title, message_body, recipient_uuid, public_key_pem, collapse_duplicates):
         payload = self.create_payload(public_key_pem, message_title, message_body, collapse_duplicates)
