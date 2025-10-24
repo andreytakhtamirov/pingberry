@@ -9,4 +9,5 @@ server/certs/
 client/app/client_data.json
 client/app/mqtt_credentials.json
 
+*.zip
 *.db

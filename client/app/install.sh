@@ -43,7 +43,7 @@ import requests
 from pathlib import Path
 from uuid import UUID
 
-PINGBERRY_URL = "https://scoreless-clinically-carol.ngrok-free.app/server/register"
+PINGBERRY_URL = "https://api.pingberry.xyz/register"
 basedir = "$PINGBERRY_ENV_DIR"
 email = "$EMAIL"
 uuid_str = "$UUID"
