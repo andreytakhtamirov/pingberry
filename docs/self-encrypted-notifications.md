@@ -3,12 +3,14 @@
 ## Description
 This guide explains how to send self-encrypted push notifications using a client’s public key. By encrypting the notification title and body before transmission, the PingBerry server and all intermediaries remain blind to the contents, ensuring true end-to-end privacy. Only the intended client can decrypt and read the message, guaranteeing confidentiality from sender to recipient.
 
+⚠️ Note: The PingBerry server **can encrypt notifications on its own** when using the standard [/notify](https://github.com/andreytakhtamirov/pingberry/blob/main/docs/api-docs.md#post-notify) route.  
+This guide describes the [/notify/encrypted](https://github.com/andreytakhtamirov/pingberry/blob/main/docs/api-docs.md#post-notifyencrypted) route, where the **sender is responsible for encrypting the message contents** before sending.  
+The server will forward the payload to the device without modifying it, ensuring true end-to-end privacy.
+
 Steps involved:
 1. Retrieve a registered user's public key
 2. Encrypt your title and message using RSA with PKCS#1 v1.5 padding
 3. Send the encrypted payload to the server
-
-⚠️ Note: The server does not perform any encryption or decryption—it simply forwards encrypted payloads. This design supports zero-knowledge push delivery.
 
 ## Encryption Method
 All message contents must be encrypted using the following specifications to be correctly parsed by PingBerry clients:
