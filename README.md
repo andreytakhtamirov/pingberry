@@ -13,8 +13,8 @@ For full API documentation, see the [PingBerry API Docs](docs/api-docs.md).
 
 [Download Term49 BAR with all permissions enabled here](https://github.com/BerryFarm/Term49/releases/download/0.4.1.8/Term49-0.4.1.8.bar)
 
-🔗 **[Download the installer ZIP here](LINK HERE)**  
-*(Coming soon)*
+📥 **[Download the PingBerry installer ZIP here](https://github.com/andreytakhtamirov/pingberry/releases/latest/download/pingberry-env.zip
+)**  
 
 ---
 
