@@ -1,20 +1,26 @@
-# PingBerry
-PingBerry is a background notification service for BlackBerry 10 devices.
+# 🔔 PingBerry
+PingBerry is a background notification service for BlackBerry 10 devices, delivering **instant, native, push-style notifications** from connected apps and services directly to your device.
 
-**Monitor server status and uptime here**: [PingBerry Status Monitor](https://status.pingberry.xyz)
+All notifications are **end-to-end encrypted**, ensuring that only your device can read the messages.
 
-For full API documentation, see the [PingBerry API Docs](docs/api-docs.md).
+[Learn how to send truly end-to-end encrypted notifications (sender-encrypted)](docs/self-encrypted-notifications.md)
 
-[Learn how to send end-to-end encrypted notifications](docs/self-encrypted-notifications.md)
 
-## Installation Guide
+| Resource | Link |
+|----------|------|
+| Monitor server status and uptime | [PingBerry Status Monitor](https://status.pingberry.xyz) |
+| Full API documentation | [PingBerry API Docs](docs/api-docs.md) |
 
-> **⚠️ Must be installed in a Term48 or Term49 environment with _ALL PERMISSIONS ENABLED_.**
+
+
+## 📥 Installation Guide
+
+> **⚠️ Must be installed in a Term48 or Term49 environment with _ALL PERMISSIONS ENABLED_ or else notifications won't appear!**
 
 [Download Term49 BAR with all permissions enabled here](https://github.com/BerryFarm/Term49/releases/download/0.4.1.8/Term49-0.4.1.8.bar)
 
-📥 **[Download the PingBerry installer ZIP here](https://github.com/andreytakhtamirov/pingberry/releases/latest/download/pingberry-env.zip
-)**  
+### 📱 Install PingBerry on your BlackBerry 10 device:
+Navigate to: [download.pingberry.xyz](https://download.pingberry.xyz) to download the ZIP.
 
 ---
 
@@ -47,10 +53,22 @@ For full API documentation, see the [PingBerry API Docs](docs/api-docs.md).
     ```
     Setup complete. Restart Term48 to start the notification service.
     ```
-
----
-
 ### After Installation
 
 - You can now **restart Term48/Term49** — the notification service will run automatically on launch.
-- **Keep Term48/Term49 open in the background** to receive notifications.
+- Upon first connection, you should see a welcome notification titled "Welcome to PingBerry!".
+- **You must keep Term48/Term49 open in the background** to receive notifications.
+
+---
+  
+## ⚡ Battery Life Impact
+
+PingBerry is designed to run efficiently in the background on BlackBerry 10 devices. It uses a highly efficient Internet of Things (IoT) network protocol — **MQTT** — which keeps connections lightweight and minimizes battery and data usage while delivering notifications in near real-time.
+
+In real-world usage tests:
+
+- **Test scenario:** 18-hour day, receiving an average of 8 notifications per hour.
+- **Result:** PingBerry consumed only **~2.4% of total battery** over the course of the day.
+
+Most of the battery impact comes from decrypting each incoming notification, while maintaining the network connection has a negligible effect. This demonstrates that the service has a minimal impact on device battery life while keeping you connected and ready to receive notifications.
+
