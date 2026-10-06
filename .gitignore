@@ -11,3 +11,4 @@ client/app/mqtt_credentials.json
 
 *.zip
 *.db
+.venv/

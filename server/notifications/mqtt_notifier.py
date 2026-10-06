@@ -23,19 +23,26 @@ class MQTTNotification:
         self.connected = False
         self.subscribed = False
 
+        # MQTT is optional: without a configured broker (e.g. an iOS-only
+        # deployment, or local testing) we skip connecting entirely.
+        self.enabled = bool(broker)
+
         self.client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             protocol=mqtt.MQTTv5,
             client_id=str(uuid.uuid4())
         )
 
-        self.client.tls_set(ca_certs=ca_cert, tls_version=ssl.PROTOCOL_TLS)
-        self.client.username_pw_set(username, password)
-
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_status_message
 
+        if not self.enabled:
+            print("[WARN] MQTT_BROKER not configured; MQTT delivery disabled.")
+            return
+
+        self.client.tls_set(ca_certs=ca_cert, tls_version=ssl.PROTOCOL_TLS)
+        self.client.username_pw_set(username, password)
         self.client.reconnect_delay_set(min_delay=1, max_delay=60)
         self.client.connect(broker, port, 30)
         self.client.loop_start()
@@ -228,6 +235,10 @@ class MQTTNotification:
         return None
 
     def send(self, message_title, message_body, recipient_uuid, public_key_pem, collapse_duplicates):
+        if not self.enabled:
+            print("[WARN] MQTT delivery disabled (no broker configured).")
+            return False
+
         payload = self.create_payload(public_key_pem, message_title, message_body, collapse_duplicates)
 
         topic = f"notifications/{recipient_uuid}"
@@ -243,6 +254,10 @@ class MQTTNotification:
             return False
 
     def send_encrypted(self, encrypted_title, encrypted_body, recipient_uuid, public_key_pem, collapse_duplicates):
+        if not self.enabled:
+            print("[WARN] MQTT delivery disabled (no broker configured).")
+            return False
+
         payload = self.create_encrypted_payload(public_key_pem, encrypted_title, encrypted_body, collapse_duplicates)
 
         topic = f"notifications/{recipient_uuid}"
@@ -258,5 +273,7 @@ class MQTTNotification:
             return False
 
     def disconnect(self):
+        if not self.enabled:
+            return
         self.client.loop_stop()
         self.client.disconnect()

@@ -72,3 +72,34 @@ In real-world usage tests:
 
 Most of the battery impact comes from decrypting each incoming notification, while maintaining the network connection has a negligible effect. This demonstrates that the service has a minimal impact on device battery life while keeping you connected and ready to receive notifications.
 
+
+---
+
+## 📱 iOS push notifications (APNs)
+
+PingBerry can also deliver notifications to the [PingBerry iOS app](https://github.com/andreytakhtamirov/pingberry) (or any iOS app built against it) via Apple Push Notification service (APNs).
+
+The iOS app registers its APNs device token against an email using **`POST /register/ios`**. When a notification is sent to that email via `POST /notify`, it is delivered to the iOS device through APNs in addition to any BlackBerry 10 (MQTT) clients.
+
+To enable APNs delivery on the server:
+
+1. Install the HTTP/2 dependency:
+   ```sh
+   pip install "httpx[http2]"
+   ```
+2. Add the APNs settings to `server/.env` (see `server/.env.example`):
+   ```
+   APNS_TEAM_ID=YOUR_APPLE_TEAM_ID
+   APNS_KEY_ID=YOUR_APNS_KEY_ID
+   APNS_PRIVATE_KEY_PATH=./certs/AuthKey_XXXXXXXXXX.p8
+   APNS_TOPIC=com.pingberry.ios
+   APNS_USE_SANDBOX=true
+   ```
+   - `APNS_TEAM_ID` — your Apple Developer Team ID.
+   - `APNS_KEY_ID` — the Key ID of the APNs authentication key (`.p8`).
+   - `APNS_PRIVATE_KEY_PATH` — path to that `.p8` key.
+   - `APNS_TOPIC` — the app's bundle identifier.
+   - `APNS_USE_SANDBOX` — `true` for development, `false` for production.
+
+If the APNs settings are left empty, the server still runs normally and simply
+skips APNs delivery (MQTT-only behavior is unchanged).

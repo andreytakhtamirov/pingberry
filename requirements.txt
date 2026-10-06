@@ -1,0 +1,11 @@
+# PingBerry server dependencies
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic[email]
+python-dotenv
+paho-mqtt
+pycryptodome
+
+# Required for APNs delivery (HTTP/2). Install with: pip install "httpx[http2]"
+httpx[http2]

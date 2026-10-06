@@ -33,65 +33,12 @@ else
     fi
     echo "UUID: $UUID"
 
-    # --- Step 4: Generate keys and persist everything ---
-    echo "Generating notification encryption keys..."
-    $PYTHON_BIN <<EOF
-import sys
-import rsa
-import json
-import requests
-from pathlib import Path
-from uuid import UUID
-
-PINGBERRY_URL = "https://api.pingberry.xyz/register"
-basedir = "$PINGBERRY_ENV_DIR"
-email = "$EMAIL"
-uuid_str = "$UUID"
-uuid_val = UUID(uuid_str)
-
-# --- Generate keys ---
-# 1. Notification encryption key pair (server ➜ client)
-notif_public_key, notif_private_key = rsa.newkeys(2048)
-
-# 2. Status signing key pair (client ➜ server)
-status_public_key, status_private_key = rsa.newkeys(2048)
-
-# --- Serialize keys ---
-data = {
-    "email": email,
-    "uuid": str(uuid_val),
-
-    "notification_private_key": notif_private_key.save_pkcs1().decode(),
-    "notification_public_key": notif_public_key.save_pkcs1().decode(),
-
-    "status_private_key": status_private_key.save_pkcs1().decode(),
-    "status_public_key": status_public_key.save_pkcs1().decode()
-}
-
-file_path = Path(basedir) / "app" / "client_data.json"
-file_path.write_text(json.dumps(data, indent=2))
-
-# --- Send public keys to server ---
-try:
-    resp = requests.post(PINGBERRY_URL, json={
-        "email": email,
-        "uuid": str(uuid_val),
-        "notification_public_key": data["notification_public_key"],
-        "status_public_key": data["status_public_key"]
-    })
-except requests.RequestException as e:
-    print(f"Registration failed: {e}")
-    sys.exit(1) 
-
-if resp.status_code == 201:
-    print("Registration complete! Your device has been registered with the server.")
-elif resp.status_code == 200:
-    print("Existing registration found. Keys were rotated successfully.")
-else:
-    print("Registration failed.")
-    print(f"Server responded with status {resp.status_code}:")
-    print(resp.text)
-EOF
+    # --- Step 4: Generate keys and register with the server ---
+    echo "Generating encryption keys and registering with the server..."
+    "$PYTHON_BIN" "$PINGBERRY_ENV_DIR/app/register.py" "$EMAIL" "$UUID" "$PINGBERRY_ENV_DIR" || {
+        echo "Registration failed."
+        exit 1
+    }
 fi
 
 # Ensure the profile file exists

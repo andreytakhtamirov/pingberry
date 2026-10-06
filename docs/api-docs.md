@@ -7,6 +7,7 @@
 - [POST /notify](#post-notify)
 - [POST /notify/encrypted](#post-notifyencrypted)
 - [POST /clients/public-key](#post-clientspublic-key)
+- [POST /register/ios](#post-registerios)
 
 # Notifications
 
@@ -16,7 +17,9 @@ Send a notification to a registered client device. The message is encrypted on t
 
 ### Description
 
-This endpoint sends a message from one client or service to another via MQTT.  
+This endpoint sends a message from one client or service to another via MQTT.
+
+If the recipient email also has an iOS device registered (see [POST /register/ios](#post-registerios)), the notification is additionally delivered to that device via Apple Push Notification service (APNs).
 
 Fields `message_title` and `message_body` are validated to be at most **245 bytes** (UTF-8) each due to limits imposed by the encryption keys.
 
@@ -167,3 +170,44 @@ This endpoint returns the **notification public key** of a recipient given their
 ```
 
 ---
+
+---
+
+## POST /register/ios
+
+Register (or update) an iOS device's APNs token for a given email.
+
+### Description
+
+The PingBerry iOS app calls this endpoint after obtaining its Apple Push
+Notification service (APNs) device token. It associates the user's email address
+with the device token so that `POST /notify` can deliver notifications to the
+iOS device via APNs.
+
+This endpoint is **idempotent**: registering an already-registered email simply
+refreshes the stored device token (APNs tokens can change over time, for example
+after reinstalling the app).
+
+#### Request Body
+
+```json
+{
+  "email": "user@example.com",
+  "device_token": "abc123...device-token-hex"
+}
+```
+
+#### Schema
+
+| Field          | Type           | Required | Description                                                        |
+| -------------- | -------------- | -------- | ------------------------------------------------------------------ |
+| `email`        | string (email) | Yes      | The email address that identifies the user.                        |
+| `device_token` | string         | Yes      | The hex-encoded APNs device token for the iOS device.              |
+
+#### Responses
+
+| Status                   | Meaning      | Description                                        |
+| ------------------------ | ------------ | -------------------------------------------------- |
+| **201 Created**          | Registered   | A new iOS device was registered for the email.     |
+| **200 OK**               | Updated      | The existing iOS device token was refreshed.       |
+| **400 Bad Request**      | Validation   | The email or device token failed validation.       |

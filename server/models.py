@@ -33,3 +33,11 @@ class PublicKeyRequest(BaseModel):
 
 class PublicKeyResponse(BaseModel):
     notification_public_key: str
+
+class IOSRegisterRequest(BaseModel):
+    email: EmailStr
+    device_token: str
+
+class ConfirmRequest(BaseModel):
+    pending_id: str
+    code: str
